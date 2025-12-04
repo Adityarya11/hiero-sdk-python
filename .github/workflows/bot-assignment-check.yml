@@ -1,0 +1,79 @@
+name: PythonBot - Assignment Limit
+
+on:
+  issues:
+    types: [assigned]
+
+permissions:
+  issues: write
+  # 'checks' or 'statuses' might be needed depending on repo settings, 
+  # but 'issues: write' is usually sufficient for commenting/editing.
+
+jobs:
+  check-assignment-limit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Check Assignment Count
+        env:
+          GH_TOKEN: ${{ secrets.TEST_PAT }}
+        run: |
+          # 1. Setup Variables
+          ASSIGNEE="${{ github.event.assignee.login }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          REPO="${{ github.repository }}"
+
+          echo "Checking assignment rules for @$ASSIGNEE on issue #$ISSUE_NUMBER..."
+
+          # 2. Check Permissions (The "VIP" Check)
+          # We check if the user has 'admin' or 'write' permission.
+          # If they do, they are a maintainer/committer and are exempt.
+          PERM_JSON=$(gh api repos/$REPO/collaborators/$ASSIGNEE/permission)
+          PERMISSION=$(echo "$PERM_JSON" | jq -r '.permission')
+
+          echo "User permission level: $PERMISSION"
+
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]]; then
+            echo "✅ User is a maintainer/committer (Permission: $PERMISSION). Limit does not apply."
+            # exit 0
+          fi
+
+          # 3. Count Open Assignments
+          # List all open issues currently assigned to this user
+          ASSIGNMENTS_JSON=$(gh issue list --repo $REPO --assignee "$ASSIGNEE" --state open --json number)
+          COUNT=$(echo "$ASSIGNMENTS_JSON" | jq '. | length')
+
+          echo "Current open assignments count: $COUNT"
+
+          # 4. Enforce Limit (Max 2)
+          # Note: Since this workflow runs AFTER the assignment happens, the current issue is included in the count.
+          # If they had 2 issues and just got assigned a 3rd, the count will be 3.
+          # Logic: If Count > 2, they have exceeded the limit.
+          
+          if (( COUNT > 2 )); then
+            echo "❌ Limit exceeded (Max 2 allowed). Revoking assignment."
+
+            # A. Remove the assignee
+            gh issue edit $ISSUE_NUMBER --repo $REPO --remove-assignee "$ASSIGNEE"
+
+            # B. Post the explanation comment
+            COMMENT=$(cat <<EOF
+            Hi, this is AssignBot. 🤖
+
+            @$ASSIGNEE cannot be assigned to this issue because they are already assigned to **$COUNT** open issues (Limit: 2).
+
+            Please resolve and merge your existing assigned issues before requesting new ones. This helps ensure older issues don't get left behind!
+            EOF
+            )
+            
+            gh issue comment $ISSUE_NUMBER --repo $REPO --body "$COMMENT"
+            
+            # Fail the job to make it red in the logs
+            exit 1
+          else
+            echo "✅ Assignment valid. User has $COUNT assignments (Limit: 2)."
+          fi
