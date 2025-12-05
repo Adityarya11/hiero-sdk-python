@@ -14,7 +14,7 @@ echo "User permission level: $PERMISSION"
 
 if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]]; then
   echo "User is a maintainer or committer. Limit does not apply."
-  exit 0
+  # exit 0
 fi
 
 ASSIGNMENTS_JSON=$(gh issue list --repo $REPO --assignee "$ASSIGNEE" --state open --json number)
