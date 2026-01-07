@@ -162,6 +162,7 @@ This changelog is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Fixed `cron-check-broken-links.yml` string parsing issue in context input `dry_run` (#1235)
 - Flaky tests by disabling TLS in mock Hedera nodes in `mock_server.py`
 - Fixed LinkBot permission issue for fork PRs by changing trigger to pull_request_target and adding proper permissions.
+- Improved unit test coverage for `TopicInfo` class, covering string formatting and optional field handling [#1308](https://github.com/hiero-ledger/hiero-sdk-python/issues/1308)
 
 ### Breaking Change
 

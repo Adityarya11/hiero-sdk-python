@@ -241,3 +241,157 @@ def test_from_proto_with_custom_fees():
     assert len(topic_info.custom_fees) == 2
     assert topic_info.custom_fees[0].amount == custom_fee.amount
     assert topic_info.custom_fees[1].amount == custom_fee.amount
+    
+def test_topic_info_str_with_all_fields(topic_info):
+    """Test the string representation of TopicInfo with all fields populated."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = topic_info.memo
+    proto.runningHash = topic_info.running_hash
+    proto.sequenceNumber = 10
+    proto.expirationTime.seconds = 1625097600
+    
+    info = TopicInfo._from_proto(proto)
+    # Manually set ledger_id since proto might not support it
+    info.ledger_id = b"\xff"
+    
+    s = str(info)
+    
+    # Verify hex conversion and formatting
+    assert "TopicInfo(" in s
+    assert f"memo='{topic_info.memo}'" in s
+    assert f"running_hash=0x{topic_info.running_hash.hex()}" in s  # b"hash" in hex
+    assert "sequence_number=10" in s
+    assert "ledger_id=0xff" in s
+    assert "expiration_time=" in s
+
+def test_topic_info_str_with_none_expiration_time():
+    """Test string representation when expiration_time is None."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Expiration"
+    proto.sequenceNumber = 1
+    
+    info = TopicInfo._from_proto(proto)
+    s = str(info)
+    
+    assert "expiration_time=None" in s
+
+def test_topic_info_str_with_none_running_hash():
+    """Test string representation when running_hash is None/Empty."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Hash"
+    proto.runningHash = b""
+    proto.sequenceNumber = 1
+    
+    info = TopicInfo._from_proto(proto)
+    s = str(info)
+    
+    # Updated expectation: should be running_hash=None, not 0xNone
+    assert "running_hash=None" in s
+
+def test_topic_info_str_with_none_auto_renew_period():
+    """Test string representation when auto_renew_period is None."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Renew"
+    proto.sequenceNumber = 1
+    # Do not set autoRenewPeriod
+    
+    info = TopicInfo._from_proto(proto)
+    s = str(info)
+    
+    assert "auto_renew_period=None" in s
+
+def test_topic_info_str_with_non_bytes_ledger_id():
+    """Test string representation when ledger_id is not bytes (invalid type)."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "Bad Ledger ID"
+    proto.sequenceNumber = 1
+    
+    info = TopicInfo._from_proto(proto)
+    # Manually inject invalid type
+    info.ledger_id = "invalid_string_not_bytes"
+    
+    s = str(info)
+    
+    # Logic: if isinstance(self.ledger_id, (bytes, bytearray)) is False -> None
+    # Updated expectation based on corrected logic in topic_info.py
+    assert "ledger_id=None" in s
+
+def test_topic_info_repr(topic_info):
+    """Test that __repr__ matches __str__ output."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = topic_info.memo
+    
+    info = TopicInfo._from_proto(proto)
+    assert repr(info) == str(info)
+
+def test_topic_info_from_proto_without_admin_key():
+    """Test parsing without admin key."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Admin"
+    
+    # Ensure adminKey is NOT set
+    assert not proto.HasField("adminKey")
+    
+    info = TopicInfo._from_proto(proto)
+    assert info.admin_key is None
+
+def test_topic_info_from_proto_without_submit_key():
+    """Test parsing without submit key."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Submit"
+    
+    assert not proto.HasField("submitKey")
+    
+    info = TopicInfo._from_proto(proto)
+    assert info.submit_key is None
+
+def test_topic_info_from_proto_without_auto_renew_period():
+    """Test parsing without auto renew period."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Period"
+    
+    assert not proto.HasField("autoRenewPeriod")
+    
+    info = TopicInfo._from_proto(proto)
+    assert info.auto_renew_period is None
+
+def test_topic_info_from_proto_without_auto_renew_account():
+    """Test parsing without auto renew account."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Account"
+    
+    assert not proto.HasField("autoRenewAccount")
+    
+    info = TopicInfo._from_proto(proto)
+    assert info.auto_renew_account is None
+
+def test_topic_info_from_proto_without_fee_schedule_key():
+    """Test parsing without fee schedule key."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "No Fee Key"
+    
+    assert not proto.HasField("fee_schedule_key")
+    
+    info = TopicInfo._from_proto(proto)
+    assert info.fee_schedule_key is None
+
+def test_topic_info_from_proto_minimal():
+    """Test parsing a minimal proto with only required fields."""
+    proto = consensus_topic_info_pb2.ConsensusTopicInfo()
+    proto.memo = "Minimal"
+    proto.sequenceNumber = 123
+    proto.runningHash = b"\x00"
+    
+    info = TopicInfo._from_proto(proto)
+    
+    assert info.memo == "Minimal"
+    assert info.sequence_number == 123
+    assert info.running_hash == b"\x00"
+    
+    # Verify all optional fields are None
+    assert info.admin_key is None
+    assert info.submit_key is None
+    assert info.auto_renew_period is None
+    assert info.auto_renew_account is None
+    assert info.expiration_time is None
+    assert info.fee_schedule_key is None

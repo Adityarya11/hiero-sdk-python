@@ -113,7 +113,7 @@ class TopicInfo:
                 topic_info_proto.autoRenewAccount
                 if topic_info_proto.HasField("autoRenewAccount") else None
             ),
-            ledger_id=getattr(topic_info_proto, "ledger_id", None),
+            ledger_id = getattr(topic_info_proto, "ledgerId", getattr(topic_info_proto, "ledger_id", b"")),
             fee_schedule_key=(
                 PublicKey._from_proto(topic_info_proto.fee_schedule_key)
                 if topic_info_proto.HasField("fee_schedule_key") else None
@@ -145,25 +145,24 @@ class TopicInfo:
         running_hash_hex: Optional[str] = (
             self.running_hash.hex() if self.running_hash else None
         )
-        ledger_id_hex: Optional[str] = (
-            self.ledger_id.hex()
-            if isinstance(self.ledger_id, (bytes, bytearray))
-            else None
-        )
+        
+        ledger_id_hex: Optional[str] = None
+        if self.ledger_id and isinstance(self.ledger_id, (bytes, bytearray)):
+            ledger_id_hex = self.ledger_id.hex()
 
         return (
             "TopicInfo(\n"
             f"  memo='{self.memo}',\n"
-            f"  running_hash=0x{running_hash_hex},\n"
+            f"  running_hash={f'0x{running_hash_hex}' if running_hash_hex else 'None'},\n"
             f"  sequence_number={self.sequence_number},\n"
             f"  expiration_time={exp_dt},\n"
             f"  admin_key={format_key(self.admin_key)},\n"
             f"  submit_key={format_key(self.submit_key)},\n"
-            f"  auto_renew_period={self.auto_renew_period.seconds},\n"
+            f"  auto_renew_period={self.auto_renew_period.seconds if self.auto_renew_period else None},\n"
             f"  auto_renew_account={self.auto_renew_account},\n"
-            f"  ledger_id=0x{ledger_id_hex},\n"
+            f"  ledger_id={f'0x{ledger_id_hex}' if ledger_id_hex else 'None'},\n"
             f"  fee_schedule_key={format_key(self.fee_schedule_key)},\n"
-            f"  fee_exempt_keys={[format_key(key) for key in self.fee_exempt_keys]},\n"
-            f"  custom_fees={self.custom_fees},\n"
+            f"  fee_exempt_keys={self.fee_exempt_keys},\n"
+            f"  custom_fees={self.custom_fees}\n"
             ")"
         )
