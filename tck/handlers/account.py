@@ -95,13 +95,9 @@ def _serialize_key(key) -> str | None:
     return key.to_bytes().hex()
 
 
-def _to_staking_info_response(info: AccountInfo) -> StakingInfoResponse:
+def _to_staking_info_response(info: AccountInfo) -> StakingInfoResponse | None:
     if info.staking_info is None:
-        return StakingInfoResponse(
-            declineStakingReward=False,
-            pendingReward="0",
-            stakedToMe="0",
-        )
+        return None
 
     staking_info = info.staking_info
     return StakingInfoResponse(
